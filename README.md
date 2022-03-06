@@ -9,11 +9,15 @@
 
 ## Description
 
-This project is implemented from [NestJs Course for Beginners - Create a REST API](https://www.youtube.com/watch?v=GHTA143_b-s&t=1s)
+This project is implemented from :
+
+* [NestJs Course for Beginners - Create a REST API](https://www.youtube.com/watch?v=GHTA143_b-s&t=1s)
+* [NestJs Testing Tutorial - Integration Testing](https://www.youtube.com/watch?v=J5As5D_Ht_w&t=255s)
 
 Thank you
 
 * [freeCodeCamp.org](https://www.youtube.com/channel/UC8butISFwT-Wl7EV0hUK0BQ)
+* [Code With Vlad](https://www.youtube.com/channel/UCjmouj0JizYt0qTI53TAtFg)
 
 ## Installation
 
