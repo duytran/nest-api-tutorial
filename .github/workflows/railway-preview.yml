@@ -3,13 +3,13 @@ name: Railway Preview Deployment
 on:
   workflow_dispatch:
     inputs:
-      deploy:
-        description: 'Deploy preview environment?'
+      action:
+        description: 'What do you want to do?'
         required: true
         type: choice
         options:
-          - 'yes'
-          - 'no'
+          - 'deploy'
+          - 'cleanup'
 
 permissions:
   contents: read
@@ -23,7 +23,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.deploy == 'yes' }}
+    if: ${{ github.event.inputs.action == 'deploy' }}
 
     steps:
       - name: Checkout repository
@@ -73,7 +73,7 @@ jobs:
 
   cleanup:
     runs-on: ubuntu-latest
-    if: false
+    if: ${{ github.event.inputs.action == 'cleanup' }}
 
     steps:
       - name: Checkout repository
