@@ -45,13 +45,18 @@ COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 # Copy built application
 COPY --from=builder /app/dist ./dist
 
-# Run migrations during build
-# Railway provides DATABASE_URL during build, so migrations will run here
-RUN npx prisma migrate deploy
+# Create startup script that runs migrations then starts the app
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'set -e' >> /app/start.sh && \
+    echo 'echo "Running database migrations..."' >> /app/start.sh && \
+    echo 'npx prisma migrate deploy' >> /app/start.sh && \
+    echo 'echo "Starting application..."' >> /app/start.sh && \
+    echo 'exec node dist/main' >> /app/start.sh && \
+    chmod +x /app/start.sh
 
 # Expose port (Railway will set PORT env var)
 EXPOSE 3000
 
-# Start the application
-CMD ["node", "dist/main"]
+# Start the application (runs migrations first, then starts app)
+CMD ["/app/start.sh"]
 
