@@ -1,5 +1,5 @@
 # Build stage
-FROM node:18-alpine AS builder
+FROM node:18-slim AS builder
 
 WORKDIR /app
 
@@ -19,10 +19,12 @@ RUN npx prisma generate
 RUN yarn build
 
 # Production stage
-FROM node:18-alpine AS production
+FROM node:18-slim AS production
 
 # Install OpenSSL for Prisma (required for query engine)
-RUN apk add --no-cache openssl libssl1.1-compat
+RUN apt-get update && \
+    apt-get install -y openssl && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
