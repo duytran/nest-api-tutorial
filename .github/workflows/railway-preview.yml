@@ -1,8 +1,15 @@
 name: Railway Preview Deployment
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy preview environment?'
+        required: true
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
 
 permissions:
   contents: read
@@ -10,13 +17,13 @@ permissions:
   issues: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref }}
+  group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ github.event.action != 'closed' }}
+    if: ${{ github.event.inputs.deploy == 'yes' }}
 
     steps:
       - name: Checkout repository
@@ -25,18 +32,18 @@ jobs:
       - name: Sanitize branch name
         id: sanitize
         run: |
-          BRANCH_NAME="${{ github.head_ref }}"
+          BRANCH_NAME="${{ github.ref_name }}"
           # Create a short hash of the branch name for uniqueness
           HASH=$(echo -n "$BRANCH_NAME" | sha256sum | cut -c1-8)
           # Sanitize branch name: lowercase, alphanumeric and hyphens only, max 20 chars
           SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-\|-$//g' | cut -c1-20 | sed 's/-$//')
-          # Combine: pr-{short-branch}-{hash} but limit total to 30 chars
+          # Combine: {short-branch}-{hash} but limit total to 30 chars
           if [ -n "$SANITIZED_BRANCH" ] && [[ "$SANITIZED_BRANCH" =~ ^[a-z] ]]; then
             # Use branch name if valid and starts with letter
             SANITIZED="${SANITIZED_BRANCH}-${HASH}"
           else
-            # Fallback to PR number with hash
-            SANITIZED="pr${{ github.event.pull_request.number }}-${HASH}"
+            # Fallback to branch-{hash}
+            SANITIZED="branch-${HASH}"
           fi
           # Ensure it starts with a letter and limit to 30 characters
           if [[ ! "$SANITIZED" =~ ^[a-z] ]]; then
@@ -45,6 +52,7 @@ jobs:
           SANITIZED="${SANITIZED:0:30}"
           SANITIZED="${SANITIZED%-}"
           echo "sanitized=$SANITIZED" >> $GITHUB_OUTPUT
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
       - name: Deploy to Railway
         uses: ayungavis/railway-preview-deploy@v1.0.2
@@ -53,76 +61,19 @@ jobs:
           project_id: ${{ secrets.RAILWAY_PROJECT_ID }}
           environment_name: 'production'
           preview_environment_name: '${{ steps.sanitize.outputs.sanitized }}'
-          # environment_variables: |
-          #   {
-          #     "DATABASE_URL": "postgres://username:password@hostname/db"
-          #   }
-          branch_name: ${{ github.head_ref }}
+          environment_variables: |
+            {
+              "DATABASE_URL": "postgres://username:password@hostname/db"
+            }
+          branch_name: ${{ steps.sanitize.outputs.branch_name }}
 
       - name: Post deployment info
-        run:
+        run: |
           echo "Preview deployed at ${{ steps.deploy.outputs.service_domain }}"
-
-      - name: Post or update deployment comment
-        if: ${{ steps.deploy.outputs.service_domain != '' }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const marker = '<!-- preview-comment -->'; // Unique marker to identify the comment
-            const { data: commits } = await github.rest.pulls.listCommits({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              per_page: 100 
-            });
-            const latestCommit = commits[commits.length - 1];
-            const latestCommitSha = latestCommit.sha.substring(0, 7);
-            const latestCommitAuthor = latestCommit.commit.author.name;
-
-
-            const { data: comments } = await github.rest.issues.listComments({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo
-            });
-
-            const body = `
-              ${marker}  <!-- This marker helps identify the comment for future updates -->
-              🚀 **Deployment success!**
-
-              - \`web\` deployed at [${{ steps.deploy.outputs.service_domain }}](https://${{ steps.deploy.outputs.service_domain }})
-
-              ---
-
-              *commit: ${latestCommitSha}*  
-              *author: ${latestCommitAuthor}* 
-            `;
-
-            const existingComment = comments.find(comment => comment.body.includes(marker));
-
-            if (existingComment) {
-              await github.rest.issues.updateComment({
-                comment_id: existingComment.id,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: body
-              });
-              core.info(`Updated comment ID: ${existingComment.id}`);
-            } else {
-              await github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: body
-              });
-              core.info('Created a new comment');
-            }
 
   cleanup:
     runs-on: ubuntu-latest
-    if:
-      ${{ github.event.pull_request.merged == true || github.event.action ==
-      'closed' }}
+    if: false
 
     steps:
       - name: Checkout repository
@@ -131,18 +82,18 @@ jobs:
       - name: Sanitize branch name
         id: sanitize
         run: |
-          BRANCH_NAME="${{ github.head_ref }}"
+          BRANCH_NAME="${{ github.ref_name }}"
           # Create a short hash of the branch name for uniqueness
           HASH=$(echo -n "$BRANCH_NAME" | sha256sum | cut -c1-8)
           # Sanitize branch name: lowercase, alphanumeric and hyphens only, max 20 chars
           SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-\|-$//g' | cut -c1-20 | sed 's/-$//')
-          # Combine: pr-{short-branch}-{hash} but limit total to 30 chars
+          # Combine: {short-branch}-{hash} but limit total to 30 chars
           if [ -n "$SANITIZED_BRANCH" ] && [[ "$SANITIZED_BRANCH" =~ ^[a-z] ]]; then
             # Use branch name if valid and starts with letter
             SANITIZED="${SANITIZED_BRANCH}-${HASH}"
           else
-            # Fallback to PR number with hash
-            SANITIZED="pr${{ github.event.pull_request.number }}-${HASH}"
+            # Fallback to branch-{hash}
+            SANITIZED="branch-${HASH}"
           fi
           # Ensure it starts with a letter and limit to 30 characters
           if [[ ! "$SANITIZED" =~ ^[a-z] ]]; then
@@ -151,6 +102,7 @@ jobs:
           SANITIZED="${SANITIZED:0:30}"
           SANITIZED="${SANITIZED%-}"
           echo "sanitized=$SANITIZED" >> $GITHUB_OUTPUT
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
       - name: Cleanup Railway Environment
         uses: ayungavis/railway-preview-deploy@v1.0.2
@@ -159,5 +111,5 @@ jobs:
           project_id: ${{ secrets.RAILWAY_PROJECT_ID }}
           environment_name: production
           preview_environment_name: '${{ steps.sanitize.outputs.sanitized }}'
-          branch_name: ${{ github.head_ref }}
+          branch_name: ${{ steps.sanitize.outputs.branch_name }}
           cleanup: 'true'
