@@ -53,10 +53,10 @@ jobs:
           project_id: ${{ secrets.RAILWAY_PROJECT_ID }}
           environment_name: 'production'
           preview_environment_name: '${{ steps.sanitize.outputs.sanitized }}'
-          environment_variables: |
-            {
-              "DATABASE_URL": "postgres://username:password@hostname/db"
-            }
+          # environment_variables: |
+          #   {
+          #     "DATABASE_URL": "postgres://username:password@hostname/db"
+          #   }
           branch_name: ${{ github.head_ref }}
 
       - name: Post deployment info
