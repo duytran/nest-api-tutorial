@@ -21,6 +21,9 @@ RUN yarn build
 # Production stage
 FROM node:18-alpine AS production
 
+# Install OpenSSL for Prisma (required for query engine)
+RUN apk add --no-cache openssl libssl1.1-compat
+
 WORKDIR /app
 
 # Copy package files
