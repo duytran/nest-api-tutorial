@@ -8,5 +8,6 @@ async function bootstrap() {
     whitelist:  true
   }));
   const port = process.env.PORT || 3333;
+  await app.listen(port);
 }
 bootstrap();
