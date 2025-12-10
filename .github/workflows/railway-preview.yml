@@ -26,8 +26,24 @@ jobs:
         id: sanitize
         run: |
           BRANCH_NAME="${{ github.head_ref }}"
-          # Convert to lowercase, replace invalid chars with hyphens, remove consecutive hyphens, trim hyphens
-          SANITIZED=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-\|-$//g')
+          # Create a short hash of the branch name for uniqueness
+          HASH=$(echo -n "$BRANCH_NAME" | sha256sum | cut -c1-8)
+          # Sanitize branch name: lowercase, alphanumeric and hyphens only, max 20 chars
+          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-\|-$//g' | cut -c1-20 | sed 's/-$//')
+          # Combine: pr-{short-branch}-{hash} but limit total to 30 chars
+          if [ -n "$SANITIZED_BRANCH" ] && [[ "$SANITIZED_BRANCH" =~ ^[a-z] ]]; then
+            # Use branch name if valid and starts with letter
+            SANITIZED="${SANITIZED_BRANCH}-${HASH}"
+          else
+            # Fallback to PR number with hash
+            SANITIZED="pr${{ github.event.pull_request.number }}-${HASH}"
+          fi
+          # Ensure it starts with a letter and limit to 30 characters
+          if [[ ! "$SANITIZED" =~ ^[a-z] ]]; then
+            SANITIZED="e${SANITIZED}"
+          fi
+          SANITIZED="${SANITIZED:0:30}"
+          SANITIZED="${SANITIZED%-}"
           echo "sanitized=$SANITIZED" >> $GITHUB_OUTPUT
 
       - name: Deploy to Railway
@@ -36,7 +52,7 @@ jobs:
           railway_api_token: ${{ secrets.RAILWAY_API_TOKEN }}
           project_id: ${{ secrets.RAILWAY_PROJECT_ID }}
           environment_name: 'production'
-          preview_environment_name: 'pr-${{ steps.sanitize.outputs.sanitized }}'
+          preview_environment_name: '${{ steps.sanitize.outputs.sanitized }}'
           environment_variables: |
             {
               "DATABASE_URL": "postgres://username:password@hostname/db"
@@ -116,8 +132,24 @@ jobs:
         id: sanitize
         run: |
           BRANCH_NAME="${{ github.head_ref }}"
-          # Convert to lowercase, replace invalid chars with hyphens, remove consecutive hyphens, trim hyphens
-          SANITIZED=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-\|-$//g')
+          # Create a short hash of the branch name for uniqueness
+          HASH=$(echo -n "$BRANCH_NAME" | sha256sum | cut -c1-8)
+          # Sanitize branch name: lowercase, alphanumeric and hyphens only, max 20 chars
+          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/^-\|-$//g' | cut -c1-20 | sed 's/-$//')
+          # Combine: pr-{short-branch}-{hash} but limit total to 30 chars
+          if [ -n "$SANITIZED_BRANCH" ] && [[ "$SANITIZED_BRANCH" =~ ^[a-z] ]]; then
+            # Use branch name if valid and starts with letter
+            SANITIZED="${SANITIZED_BRANCH}-${HASH}"
+          else
+            # Fallback to PR number with hash
+            SANITIZED="pr${{ github.event.pull_request.number }}-${HASH}"
+          fi
+          # Ensure it starts with a letter and limit to 30 characters
+          if [[ ! "$SANITIZED" =~ ^[a-z] ]]; then
+            SANITIZED="e${SANITIZED}"
+          fi
+          SANITIZED="${SANITIZED:0:30}"
+          SANITIZED="${SANITIZED%-}"
           echo "sanitized=$SANITIZED" >> $GITHUB_OUTPUT
 
       - name: Cleanup Railway Environment
@@ -126,6 +158,6 @@ jobs:
           railway_api_token: ${{ secrets.RAILWAY_API_TOKEN }}
           project_id: ${{ secrets.RAILWAY_PROJECT_ID }}
           environment_name: production
-          preview_environment_name: 'pr-${{ steps.sanitize.outputs.sanitized }}'
+          preview_environment_name: '${{ steps.sanitize.outputs.sanitized }}'
           branch_name: ${{ github.head_ref }}
           cleanup: 'true'
