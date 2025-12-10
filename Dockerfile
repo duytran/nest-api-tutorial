@@ -1,5 +1,5 @@
 # Build stage
-FROM node:18-slim AS builder
+FROM node:18-bullseye-slim AS builder
 
 WORKDIR /app
 
@@ -19,9 +19,9 @@ RUN npx prisma generate
 RUN yarn build
 
 # Production stage
-FROM node:18-slim AS production
+FROM node:18-bullseye-slim AS production
 
-# Install OpenSSL for Prisma (required for query engine)
+# Install OpenSSL for Prisma (Debian 11/bullseye includes OpenSSL 1.1)
 RUN apt-get update && \
     apt-get install -y openssl && \
     rm -rf /var/lib/apt/lists/*
