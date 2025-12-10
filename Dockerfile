@@ -39,11 +39,11 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/prisma ./prisma
 
+# Copy Prisma CLI from builder (to use the same version as package.json)
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+
 # Copy built application
 COPY --from=builder /app/dist ./dist
-
-# Install Prisma CLI for migrations
-RUN yarn add -D prisma
 
 # Run migrations during build
 # Railway provides DATABASE_URL during build, so migrations will run here
